@@ -10,25 +10,25 @@ import it.skrape.selects.html5.tr
 import kotlinx.coroutines.delay
 import java.io.File
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
-private val UPDATE_THRESHOLD = 3.hours.inWholeMilliseconds
+private val UPDATE_THRESHOLD = 1.hours.inWholeMilliseconds
 private val generalRegex = "(?<buy>\\d+,\\d+).*/.* (?<sell>\\d+,\\d+)".toRegex()
 private val nbuRegex = "(?<buy>\\d+\\.\\d+)".toRegex()
 val currentPrices = arrayListOf<CurrencyModel>()
 
 @OptIn(ExperimentalTime::class)
 suspend fun startScraping() {
-    val lastUpdatedFile = File("last-updated")
     while (true) {
         if (!lastUpdatedFile.exists() || currentPrices.isEmpty() || shouldUpdate(lastUpdatedFile)) {
             updateRates(lastUpdatedFile)
         }
-        delay(1.hours)
+        delay(1.seconds)
     }
 }
 
-fun updateRates(lastUpdatedFile: File? = null) {
+private fun updateRates(lastUpdatedFile: File? = null) {
     skrape(HttpFetcher) {
         request { url = "https://minfin.com.ua/currency/kiev/" }
         response {

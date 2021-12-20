@@ -3,6 +3,7 @@ package biz.lungo.currencybot.plugins
 import biz.lungo.currencybot.*
 import biz.lungo.currencybot.data.*
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
+import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import io.ktor.application.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -11,7 +12,6 @@ import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import kotlinx.coroutines.delay
-import java.io.File
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -22,8 +22,6 @@ import kotlin.collections.ArrayList
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
-
-var pinnedMessageId: Long = -1
 
 @OptIn(ExperimentalTime::class)
 fun Application.configureBot() {
@@ -40,12 +38,15 @@ fun Application.configureBot() {
             if (diff > 10) return@post
             when(messageText.parseCommand()) {
                 Command.Start -> {
-                    sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Оновлюю курси...")
-                    updateRates()
-                    delay(10.seconds)
-                    startUpdatingPinnedMessage(chatId)
-                    delay(1.hours)
-                    startPinnedMessagePolling()
+                    val savedPinnedMessage = getPinnedMessagesInfo().find { it.chatId == chatId }
+                    if (savedPinnedMessage != null) {
+                        sendTelegramMessage(chatId, "Я вже стартував в цьому чаті, спробуй інші команди \uD83D\uDE44")
+                    } else {
+                        sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Оновлюю курси...")
+                        lastUpdatedFile.delete()
+                        delay(10.seconds)
+                        sendAndPinMessage(chatId)
+                    }
                 }
                 Command.Rates -> {
                     val responseBuilder = StringBuilder()
@@ -57,9 +58,12 @@ fun Application.configureBot() {
                 }
                 Command.Update -> {
                     sendTelegramMessage(chatId, "Оновлюю курси...")
-                    updateRates()
+                    lastUpdatedFile.delete()
                     delay(10.seconds)
-                    sendAndPinMessage(chatId)
+                    val savedPinnedMessage = getPinnedMessagesInfo().find { it.chatId == chatId }
+                    if (savedPinnedMessage != null) {
+                        editMessage(chatId, savedPinnedMessage.messageId, getFormattedPinnedMessage())
+                    }
                 }
                 Command.NbuRate -> {
                     sendTelegramMessage(chatId, "Яка саме валюта цікавить?", ReplyMarkup(true, "USD, GBP або JPY"))
@@ -114,69 +118,37 @@ fun Application.configureBot() {
 @OptIn(ExperimentalTime::class)
 suspend fun startPinnedMessagePolling() {
     while (true) {
-        startUpdatingPinnedMessage()
+        getPinnedMessagesInfo().forEach { messageInfo -> editMessage(messageInfo.chatId, messageInfo.messageId, getFormattedPinnedMessage()) }
         delay(1.hours)
     }
 }
 
-private suspend fun sendAndPinMessage(chatId: Long) {
+private suspend fun getPinnedMessagesInfo(): List<PinnedMessageInfo> {
+    val result = arrayListOf<PinnedMessageInfo>()
+    csvReader().openAsync(pinnedMessagesFile) {
+        val rows = readAllWithHeaderAsSequence()
+        result.addAll(rows.map { it.toPinnedMessageInfo() })
+    }
+    return result
+}
+
+private fun getFormattedPinnedMessage(): String {
     val usd = currentPrices.find { it.currency == "USD" }
     val eur = currentPrices.find { it.currency == "EUR" }
     val gbp = currentPrices.find { it.currency == "GBP" }
-    val formatter = DateTimeFormatter.ofPattern("HH:mm dd.MM")
-    if (pinnedMessageId > 0) {
-        editMessage(chatId, pinnedMessageId, formatPinnedMessage(
-            usd,
-            eur,
-            gbp,
-            LocalDateTime.now().format(formatter)
-        ))
-    } else {
-        val messageIdToPin = sendTelegramMessage(chatId, formatPinnedMessage(
-            usd,
-            eur,
-            gbp,
-            LocalDateTime.now().format(formatter)
-        )).result.messageId
-        pinnedMessageId = messageIdToPin
-        pinMessage(chatId, messageIdToPin)
-    }
+    val formatter = DateTimeFormatter.ofPattern("HH:mm:ss dd.MM")
+    return formatPinnedMessage(
+        usd,
+        eur,
+        gbp,
+        LocalDateTime.now().format(formatter)
+    )
 }
 
-private suspend fun startUpdatingPinnedMessage(chatId: Long? = null, start: Boolean = false) {
-    chatId?.toString()?.let { chatIdString ->
-        csvReader().openAsync(pinnedMessagesFile) {
-            readAllWithHeaderAsSequence().forEach { row: Map<String, String> ->
-                if (row.containsKey(chatIdString)) {
-                    val savedMessageId = row[chatIdString] ?: "-1"
-                    pinnedMessageId = if (start) {
-                        unpinMessage(chatIdString.toLong(), savedMessageId.toLong())
-                        -1
-                    } else {
-                        savedMessageId.toLong()
-                    }
-                }
-            }
-        }
-    }
-    if (pinnedMessagesFile.exists()) {
-        val text = pinnedMessagesFile.readText()
-        val split = text.split(":")
-        val savedChatId = split[0]
-        val savedMessageId = split[1]
-        pinnedMessageId = if (start) {
-            unpinMessage(savedChatId.toLong(), savedMessageId.toLong())
-            -1
-        } else {
-            savedMessageId.toLong()
-        }
-        chatId?.let { sendAndPinMessage(it) }
-    } else {
-        chatId?.let {
-            sendAndPinMessage(it)
-            pinnedMessagesFile.writeText("$it:$pinnedMessageId")
-        }
-    }
+private suspend fun sendAndPinMessage(chatId: Long) {
+    val messageIdToPin = sendTelegramMessage(chatId, getFormattedPinnedMessage()).result.messageId
+    pinMessage(chatId, messageIdToPin)
+    csvWriter().writeAll(listOf(listOf(chatId, messageIdToPin)), pinnedMessagesFile, true)
 }
 
 private fun formatPinnedMessage(
@@ -195,13 +167,6 @@ private suspend fun sendTelegramMessage(chatId: Long, message: String, replyMark
 
 private suspend fun pinMessage(chatId: Long, messageId: Long) {
     telegramClient.post<HttpResponse>("$BOT_API_URL/bot$telegramApiToken/pinChatMessage") {
-        contentType(ContentType.Application.Json)
-        body = PinMessageRequest(chatId, messageId, true)
-    }
-}
-
-private suspend fun unpinMessage(chatId: Long, messageId: Long) {
-    telegramClient.post<HttpResponse>("$BOT_API_URL/bot$telegramApiToken/unpinChatMessage") {
         contentType(ContentType.Application.Json)
         body = PinMessageRequest(chatId, messageId, true)
     }
@@ -226,6 +191,12 @@ private fun String?.parseCommand() = Command.values().find { this != null && thi
 
 private fun Double.formatValue() = String.format(locale = Locale.US, "%.${if (this < 1) "3" else "2"}f", this)
 
+private fun Map<String, String>.toPinnedMessageInfo(): PinnedMessageInfo {
+    val chatId = this["chatId"]?.toLong() ?: -1
+    val messageId = this["messageId"]?.toLong() ?: -1
+    return PinnedMessageInfo(chatId, messageId)
+}
+
 enum class Command(val commandText: String) {
     Start("/start"),
     Rates("/rates"),
@@ -233,3 +204,8 @@ enum class Command(val commandText: String) {
     NbuRate("/nburate"),
     Crypto("/crypto")
 }
+
+data class PinnedMessageInfo(
+    val chatId: Long,
+    val messageId: Long
+)

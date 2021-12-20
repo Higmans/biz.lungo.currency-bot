@@ -1,13 +1,18 @@
 package biz.lungo.currencybot
 
 import biz.lungo.currencybot.plugins.*
+import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import io.ktor.client.*
 import io.ktor.client.engine.apache.*
 import io.ktor.client.features.json.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.ExperimentalTime
 
 lateinit var telegramClient: HttpClient
 lateinit var nbuClient: HttpClient
@@ -16,8 +21,19 @@ lateinit var telegramApiToken: String
 lateinit var botPath: String
 lateinit var cmcApiToken: String
 
-val pinnedMessagesFile by lazy { File("pinnedIds.csv").apply { if (!exists()) createNewFile() } }
+val pinnedMessagesFile by lazy {
+    File("pinnedIds.csv").apply {
+        if (!exists()) {
+            createNewFile()
+            csvWriter().open(this) {
+                writeRow("chatId", "messageId")
+            }
+        }
+    }
+}
+val lastUpdatedFile = File("last-updated")
 
+@OptIn(ExperimentalTime::class)
 fun main(args: Array<String>) {
 
     args.get("-t")?.let {
@@ -64,8 +80,11 @@ fun main(args: Array<String>) {
     }.start()
 
     runBlocking {
-        fetchNbuRates()
-        startScraping()
+        launch {
+            fetchNbuRates()
+            startScraping()
+        }
+        delay(10.seconds)
         startPinnedMessagePolling()
     }
 }
