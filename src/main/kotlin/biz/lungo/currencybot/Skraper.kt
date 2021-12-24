@@ -7,10 +7,12 @@ import it.skrape.fetcher.HttpFetcher
 import it.skrape.fetcher.response
 import it.skrape.fetcher.skrape
 import it.skrape.selects.html5.tr
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.File
+import java.util.*
+import kotlin.concurrent.schedule
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
 private val UPDATE_THRESHOLD = 1.hours.inWholeMilliseconds
@@ -19,12 +21,15 @@ private val nbuRegex = "(?<buy>\\d+\\.\\d+)".toRegex()
 val currentPrices = arrayListOf<CurrencyModel>()
 
 @OptIn(ExperimentalTime::class)
-suspend fun startScraping() {
-    while (true) {
-        if (!lastUpdatedFile.exists() || currentPrices.isEmpty() || shouldUpdate(lastUpdatedFile)) {
-            updateRates(lastUpdatedFile)
+fun startScraping() {
+    Timer().schedule(0, 1.hours.inWholeMilliseconds) {
+        runBlocking {
+            launch {
+                if (!lastUpdatedFile.exists() || currentPrices.isEmpty() || shouldUpdate(lastUpdatedFile)) {
+                    updateRates(lastUpdatedFile)
+                }
+            }
         }
-        delay(1.seconds)
     }
 }
 

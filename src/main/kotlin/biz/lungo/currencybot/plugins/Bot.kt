@@ -5,6 +5,7 @@ import biz.lungo.currencybot.data.*
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
 import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import io.ktor.application.*
+import io.ktor.client.features.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -12,6 +13,8 @@ import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -19,6 +22,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.concurrent.schedule
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
@@ -74,7 +78,7 @@ fun Application.configureBot() {
                 }
             }
 
-            if (replyToMessage?.from?.isBot == true) {
+            if (replyToMessage?.from?.isBot == true && "CurrencyLungoBot" == replyToMessage.from.username) {
                 if (messageText?.equals("хуй", true) == true) {
                     sendTelegramMessage(chatId, "Хуя ти вумний \uD83C\uDF46\uD83C\uDF46\uD83C\uDF46")
                     return@post
@@ -115,11 +119,31 @@ fun Application.configureBot() {
     }
 }
 
-@OptIn(ExperimentalTime::class)
-suspend fun startPinnedMessagePolling() {
-    while (true) {
-        getPinnedMessagesInfo().forEach { messageInfo -> editMessage(messageInfo.chatId, messageInfo.messageId, getFormattedPinnedMessage()) }
-        delay(1.hours)
+fun startPinnedMessagePolling() {
+    Timer().schedule(15.seconds.inWholeMilliseconds, 1.hours.inWholeMilliseconds) {
+        runBlocking {
+            launch {
+                getPinnedMessagesInfo().forEach { messageInfo ->
+                    try {
+                        editMessage(messageInfo.chatId, messageInfo.messageId, getFormattedPinnedMessage())
+                    } catch (e: ClientRequestException) {
+                        val message = e.localizedMessage
+                        println("Error: $message")
+                        if (message.contains("bot was kicked from the group chat")) {
+                            removeChatId(messageInfo.chatId)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private suspend fun removeChatId(chatId: Long) {
+    val newList = ArrayList(getPinnedMessagesInfo()).apply { removeIf { it.chatId == chatId } }
+    pinnedMessagesFile.delete()
+    newList.forEach {
+        csvWriter().writeAll(listOf(listOf(it.chatId, it.messageId)), pinnedMessagesFile, true)
     }
 }
 
@@ -147,8 +171,12 @@ private fun getFormattedPinnedMessage(): String {
 
 private suspend fun sendAndPinMessage(chatId: Long) {
     val messageIdToPin = sendTelegramMessage(chatId, getFormattedPinnedMessage()).result.messageId
-    pinMessage(chatId, messageIdToPin)
-    csvWriter().writeAll(listOf(listOf(chatId, messageIdToPin)), pinnedMessagesFile, true)
+    try {
+        pinMessage(chatId, messageIdToPin)
+        csvWriter().writeAll(listOf(listOf(chatId, messageIdToPin)), pinnedMessagesFile, true)
+    } catch (e: Exception) {
+        println("Error: ${e.localizedMessage}")
+    }
 }
 
 private fun formatPinnedMessage(
@@ -187,7 +215,7 @@ private suspend fun getCryptoRates() =
         }
     }
 
-private fun String?.parseCommand() = Command.values().find { this != null && this.contains(it.commandText) }
+private fun String?.parseCommand() = Command.values().find { this != null && this.startsWith(it.commandText) }
 
 private fun Double.formatValue() = String.format(locale = Locale.US, "%.${if (this < 1) "3" else "2"}f", this)
 
