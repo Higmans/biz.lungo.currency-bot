@@ -2,6 +2,7 @@ package biz.lungo.currencybot.plugins
 
 import biz.lungo.currencybot.*
 import biz.lungo.currencybot.data.*
+import biz.lungo.currencybot.plugins.Cryptocurrency.*
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
 import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import io.ktor.application.*
@@ -73,8 +74,11 @@ fun Application.configureBot() {
                     sendTelegramMessage(chatId, "Яка саме валюта цікавить?", ReplyMarkup(true, "USD, GBP або JPY"))
                 }
                 Command.Crypto -> {
-                    val rates = getCryptoRates()
+                    val rates = getCryptoRates(listOf(BTC, ETH, XRP))
                     sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${System.lineSeparator()}${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${System.lineSeparator()}${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}")
+                }
+                Command.Joke -> {
+                    sendTelegramMessage(chatId, getNewJoke())
                 }
             }
 
@@ -207,8 +211,8 @@ private suspend fun editMessage(chatId: Long, messageId: Long, text: String) {
     }
 }
 
-private suspend fun getCryptoRates() =
-    cmcClient.get<CmcResponse>("https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=btc,eth,xrp") {
+private suspend fun getCryptoRates(currencies: List<Cryptocurrency>) =
+    cmcClient.get<CmcResponse>("${CRYPTO_RATES_BASE_URL}${currencies.formatParam()}") {
         contentType(ContentType.Application.Json)
         headers {
             append("X-CMC_PRO_API_KEY", cmcApiToken)
@@ -219,21 +223,28 @@ private fun String?.parseCommand() = Command.values().find { this != null && thi
 
 private fun Double.formatValue() = String.format(locale = Locale.US, "%.${if (this < 1) "3" else "2"}f", this)
 
+private fun List<Cryptocurrency>.formatParam() = this.joinToString(separator = ",") { it.name.lowercase(Locale.getDefault()) }
+
 private fun Map<String, String>.toPinnedMessageInfo(): PinnedMessageInfo {
     val chatId = this["chatId"]?.toLong() ?: -1
     val messageId = this["messageId"]?.toLong() ?: -1
     return PinnedMessageInfo(chatId, messageId)
 }
 
-enum class Command(val commandText: String) {
+private enum class Command(val commandText: String) {
     Start("/start"),
     Rates("/rates"),
     Update("/update"),
     NbuRate("/nburate"),
-    Crypto("/crypto")
+    Crypto("/crypto"),
+    Joke("/joke")
 }
 
-data class PinnedMessageInfo(
+private data class PinnedMessageInfo(
     val chatId: Long,
     val messageId: Long
 )
+
+private enum class Cryptocurrency {
+    BTC, ETH, XRP
+}

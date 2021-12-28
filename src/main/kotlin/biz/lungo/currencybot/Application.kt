@@ -75,6 +75,6 @@ fun main(args: Array<String>) {
     }.start()
 
     fetchNbuRates()
-    startScraping()
+    startMinfinScraping()
     startPinnedMessagePolling()
 }
