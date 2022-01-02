@@ -7,16 +7,13 @@ import it.skrape.fetcher.skrape
 import it.skrape.selects.html5.td
 
 suspend fun getOilPrices() =
-    OilPrices(fetchOilPrice(BRENT_OIL_URL), fetchOilPrice(WTI_OIL_URL))
-
-private suspend fun fetchOilPrice(siteUrl: String) =
     skrape(BrowserFetcher) {
-        request { url = siteUrl }
+        request { url = OIL_URL }
         return@skrape response {
             return@response htmlDocument {
                 return@htmlDocument td {
                     findAll {
-                        this[1].text.toDouble()
+                        OilPrices(this[1].text.toDouble(), this[4].text.toDouble())
                     }
                 }
             }

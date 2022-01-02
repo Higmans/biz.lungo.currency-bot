@@ -84,7 +84,7 @@ fun Application.configureBot() {
                 }
                 Command.Oil -> {
                     val oilPrices = getOilPrices()
-                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: ${oilPrices.brent.formatValue()}${br}WTI: ${oilPrices.wti.formatValue()}")
+                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}")
                 }
             }
 
