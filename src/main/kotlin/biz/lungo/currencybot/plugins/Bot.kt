@@ -28,6 +28,8 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
+private val br = System.lineSeparator()
+
 @OptIn(ExperimentalTime::class)
 fun Application.configureBot() {
 
@@ -57,7 +59,7 @@ fun Application.configureBot() {
                     val responseBuilder = StringBuilder()
                     currentPrices.forEach { currency ->
                         responseBuilder.append(System.lineSeparator())
-                        responseBuilder.append("<b>${currency.currency}</b>:${System.lineSeparator()}міжбанк - ${currency.bank.buy.formatValue()}/${currency.bank.sell.formatValue()}${System.lineSeparator()}НБУ - ${currency.nbu.formatValue()}${System.lineSeparator()}ринок - ${currency.market.buy.formatValue()}/${currency.market.sell.formatValue()}${System.lineSeparator()}")
+                        responseBuilder.append("<b>${currency.currency}</b>:${br}міжбанк - ${currency.bank.buy.formatValue()}/${currency.bank.sell.formatValue()}${br}НБУ - ${currency.nbu.formatValue()}${br}ринок - ${currency.market.buy.formatValue()}/${currency.market.sell.formatValue()}${br}")
                     }
                     sendTelegramMessage(chatId, responseBuilder.toString(), markdown = true)
                 }
@@ -75,10 +77,14 @@ fun Application.configureBot() {
                 }
                 Command.Crypto -> {
                     val rates = getCryptoRates(listOf(BTC, ETH, XRP))
-                    sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${System.lineSeparator()}${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${System.lineSeparator()}${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}")
+                    sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}")
                 }
                 Command.Joke -> {
                     sendTelegramMessage(chatId, getNewJoke())
+                }
+                Command.Oil -> {
+                    val oilPrices = getOilPrices()
+                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: ${oilPrices.brent.formatValue()}${br}WTI: ${oilPrices.wti.formatValue()}")
                 }
             }
 
@@ -237,7 +243,8 @@ private enum class Command(val commandText: String) {
     Update("/update"),
     NbuRate("/nburate"),
     Crypto("/crypto"),
-    Joke("/joke")
+    Joke("/joke"),
+    Oil("/oil")
 }
 
 private data class PinnedMessageInfo(
