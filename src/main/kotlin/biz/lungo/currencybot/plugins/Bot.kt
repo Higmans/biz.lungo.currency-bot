@@ -77,7 +77,11 @@ fun Application.configureBot() {
                 }
                 Command.Crypto -> {
                     val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT))
-                    sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}")
+                    sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}" +
+                            "${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}" +
+                            "${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}${br}" +
+                            "${rates.data.doge.symbol}: $${rates.data.doge.quote.quoteValue.price.formatValue()}${br}" +
+                            "${rates.data.dot.symbol}: $${rates.data.dot.quote.quoteValue.price.formatValue()}")
                 }
                 Command.Joke -> {
                     sendTelegramMessage(chatId, getNewJoke())

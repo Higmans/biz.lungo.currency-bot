@@ -15,7 +15,9 @@ data class Status(
 data class Data(
     @SerializedName("BTC") val btc: Coin,
     @SerializedName("ETH") val eth: Coin,
-    @SerializedName("XRP") val xrp: Coin
+    @SerializedName("XRP") val xrp: Coin,
+    @SerializedName("DOGE") val doge: Coin,
+    @SerializedName("DOT") val dot: Coin
 )
 
 data class Coin(
