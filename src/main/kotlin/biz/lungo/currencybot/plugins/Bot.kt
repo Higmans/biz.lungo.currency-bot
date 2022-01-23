@@ -76,7 +76,7 @@ fun Application.configureBot() {
                     sendTelegramMessage(chatId, "Яка саме валюта цікавить?", ReplyMarkup(true, "USD, GBP або JPY"))
                 }
                 Command.Crypto -> {
-                    val rates = getCryptoRates(listOf(BTC, ETH, XRP))
+                    val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT))
                     sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}")
                 }
                 Command.Joke -> {
@@ -253,5 +253,5 @@ private data class PinnedMessageInfo(
 )
 
 private enum class Cryptocurrency {
-    BTC, ETH, XRP
+    BTC, ETH, XRP, DOGE, DOT
 }
