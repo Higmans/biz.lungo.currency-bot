@@ -59,7 +59,7 @@ fun Application.configureBot() {
                     val responseBuilder = StringBuilder()
                     currentPrices.forEach { currency ->
                         responseBuilder.append(System.lineSeparator())
-                        responseBuilder.append("<b>${currency.currency}</b>:${br}міжбанк - ${currency.bank.buy.formatValue()}/${currency.bank.sell.formatValue()}${br}НБУ - ${currency.nbu.formatValue()}${br}ринок - ${currency.market.buy.formatValue()}/${currency.market.sell.formatValue()}${br}")
+                        responseBuilder.append("<b>${currency.currency}</b>:${br}банки - ${currency.bank.buy.formatValue()}/${currency.bank.sell.formatValue()}${br}НБУ - ${currency.nbu.formatValue()}${br}ринок - ${currency.market.buy.formatValue()}/${currency.market.sell.formatValue()}${br}")
                     }
                     sendTelegramMessage(chatId, responseBuilder.toString(), markdown = true)
                 }
@@ -73,7 +73,8 @@ fun Application.configureBot() {
                     }
                 }
                 Command.NbuRate -> {
-                    sendTelegramMessage(chatId, "Яка саме валюта цікавить?", ReplyMarkup(true, "USD, GBP або JPY"))
+                    sendTelegramMessage(chatId, "Команда тимчасово недоступна")
+//                    sendTelegramMessage(chatId, "Яка саме валюта цікавить?", ReplyMarkup(true, "USD, GBP або JPY"))
                 }
                 Command.Crypto -> {
                     val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT))
@@ -90,6 +91,7 @@ fun Application.configureBot() {
                     val oilPrices = getOilPrices()
                     sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}")
                 }
+                else -> Unit
             }
 
             if (replyToMessage?.from?.isBot == true && "CurrencyLungoBot" == replyToMessage.from.username) {
@@ -130,11 +132,21 @@ fun Application.configureBot() {
                 }
             }
         }
+
+        post("/refresh") {
+            val secret = call.receive<RefreshRequest>().secret
+            if (secret == botPath) {
+                call.respondText("OK")
+                updateRates(lastUpdatedFile)
+            } else {
+                call.respond(HttpStatusCode.Forbidden, "Invalid secret")
+            }
+        }
     }
 }
 
 fun startPinnedMessagePolling() {
-    Timer().schedule(15.seconds.inWholeMilliseconds, 1.hours.inWholeMilliseconds) {
+    Timer().schedule(30.seconds.inWholeMilliseconds, 1.hours.inWholeMilliseconds) {
         runBlocking {
             launch {
                 getPinnedMessagesInfo().forEach { messageInfo ->

@@ -13,11 +13,14 @@ import java.io.File
 import java.util.*
 import kotlin.concurrent.schedule
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
 private val UPDATE_THRESHOLD = 1.hours.inWholeMilliseconds
+private val REFRESH_BACKOFF = 5.minutes.inWholeMilliseconds
 private val generalRegex = "(?<buy>\\d+,\\d+).*/.* (?<sell>\\d+,\\d+)".toRegex()
 private val nbuRegex = "(?<buy>\\d+\\.\\d+)".toRegex()
+private var lastRefreshed = 0L
 val currentPrices = arrayListOf<CurrencyModel>()
 
 @OptIn(ExperimentalTime::class)
@@ -33,7 +36,8 @@ fun startMinfinScraping() {
     }
 }
 
-private fun updateRates(lastUpdatedFile: File? = null) {
+fun updateRates(lastUpdatedFile: File? = null) {
+    if (!shouldRefresh()) return
     skrape(HttpFetcher) {
         request { url = "https://minfin.com.ua/currency/kiev/" }
         response {
@@ -54,7 +58,7 @@ private fun updateRates(lastUpdatedFile: File? = null) {
                                 rows.add(CurrencyModel(currency, bank.toPrice(), nbu.toNbuPrice(), market.toPrice()))
                             }
                         }
-                        lastUpdatedFile?.writeText(System.currentTimeMillis().toString())
+                        lastUpdatedFile?.writeText(now().toString())
                         currentPrices.clear()
                         currentPrices.addAll(rows)
                     }
@@ -64,8 +68,13 @@ private fun updateRates(lastUpdatedFile: File? = null) {
     }
 }
 
+private fun now() = System.currentTimeMillis()
+
 private fun shouldUpdate(lastUpdatedFile: File) =
-    System.currentTimeMillis() - lastUpdatedFile.readText().toLong() > UPDATE_THRESHOLD
+    now() - lastUpdatedFile.readText().toLong() > UPDATE_THRESHOLD
+
+private fun shouldRefresh() =
+    now() - lastRefreshed > REFRESH_BACKOFF
 
 private fun String.toPrice(): Price {
     val priceMatch = generalRegex.find(this)

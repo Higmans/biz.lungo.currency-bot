@@ -75,6 +75,9 @@ fun main(args: Array<String>) {
     }.start()
 
     fetchNbuRates()
-    startMinfinScraping()
+//    startMinfinScraping()
     startPinnedMessagePolling()
+    if (!lastUpdatedFile.exists() || currentPrices.isEmpty()) {
+        updateRates(lastUpdatedFile)
+    }
 }

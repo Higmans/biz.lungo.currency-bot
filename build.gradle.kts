@@ -1,8 +1,8 @@
-val ktor_version: String by project
-val kotlin_version: String by project
-val logback_version: String by project
-val skrape_version: String by project
-val kotlin_csv_version: String by project
+val ktorVersion: String by project
+val kotlinVersion: String by project
+val logbackVersion: String by project
+val skrapeVersion: String by project
+val kotlinCsvVersion: String by project
 
 plugins {
     application
@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "lungo.biz"
-version = "0.4.1"
+version = "0.5.0"
 application {
     mainClass.set("biz.lungo.currencybot.ApplicationKt")
 }
@@ -22,17 +22,21 @@ repositories {
 }
 
 dependencies {
-    implementation("io.ktor:ktor-server-core:$ktor_version")
-    implementation("io.ktor:ktor-gson:$ktor_version")
-    implementation("io.ktor:ktor-serialization:$ktor_version")
-    implementation("io.ktor:ktor-server-host-common:$ktor_version")
-    implementation("io.ktor:ktor-server-netty:$ktor_version")
-    implementation("ch.qos.logback:logback-classic:$logback_version")
-    implementation("it.skrape:skrapeit:$skrape_version")
-    implementation("io.ktor:ktor-client-apache:$ktor_version")
-    implementation("io.ktor:ktor-client-serialization:$ktor_version")
-    implementation("io.ktor:ktor-client-gson:$ktor_version")
-    implementation("com.github.doyaaaaaken:kotlin-csv-jvm:$kotlin_csv_version")
+    implementation("io.ktor:ktor-server-core:$ktorVersion")
+    implementation("io.ktor:ktor-gson:$ktorVersion")
+    implementation("io.ktor:ktor-serialization:$ktorVersion")
+    implementation("io.ktor:ktor-server-host-common:$ktorVersion")
+    implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("ch.qos.logback:logback-classic:$logbackVersion")
+    implementation("it.skrape:skrapeit:$skrapeVersion")
+    implementation("io.ktor:ktor-client-apache:$ktorVersion")
+    implementation("io.ktor:ktor-client-serialization:$ktorVersion")
+    implementation("io.ktor:ktor-client-gson:$ktorVersion")
+    implementation("com.github.doyaaaaaken:kotlin-csv-jvm:$kotlinCsvVersion")
+}
+
+kotlin.sourceSets.all {
+    languageSettings.optIn("kotlin.RequiresOptIn")
 }
 
 tasks.register<Copy>("copyRelease") {
