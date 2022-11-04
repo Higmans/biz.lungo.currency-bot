@@ -17,7 +17,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
 private val UPDATE_THRESHOLD = 1.hours.inWholeMilliseconds
-private val REFRESH_BACKOFF = 5.minutes.inWholeMilliseconds
+private val REFRESH_BACKOFF = 3.minutes.inWholeMilliseconds
 private val generalRegex = "(?<buy>\\d+,\\d+).*/.* (?<sell>\\d+,\\d+)".toRegex()
 private val nbuRegex = "(?<buy>\\d+\\.\\d+)".toRegex()
 private var lastRefreshed = 0L
@@ -38,6 +38,7 @@ fun startMinfinScraping() {
 
 fun updateRates(lastUpdatedFile: File? = null) {
     if (!shouldRefresh()) return
+    lastRefreshed = now()
     skrape(HttpFetcher) {
         request { url = "https://minfin.com.ua/currency/kiev/" }
         response {

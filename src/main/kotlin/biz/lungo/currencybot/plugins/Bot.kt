@@ -36,8 +36,8 @@ fun Application.configureBot() {
     routing {
 
         post("/$botPath") {
-            call.respondText("OK")
             val message = call.receive<MessageResponse>().message
+            call.respondText("OK")
             val replyToMessage = message?.replyToMessage
             val messageText = message?.text
             val chatId = message?.chat?.id ?: return@post
