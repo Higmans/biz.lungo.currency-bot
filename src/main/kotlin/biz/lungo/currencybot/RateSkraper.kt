@@ -36,7 +36,7 @@ fun startMinfinScraping() {
     }
 }
 
-fun updateRates(lastUpdatedFile: File? = null) {
+suspend fun updateRates(lastUpdatedFile: File? = null) {
     if (!shouldRefresh()) return
     lastRefreshed = now()
     skrape(HttpFetcher) {

@@ -138,6 +138,7 @@ fun Application.configureBot() {
             if (secret == botPath) {
                 call.respondText("OK")
                 updateRates(lastUpdatedFile)
+                refreshPinnedMessages()
             } else {
                 call.respond(HttpStatusCode.Forbidden, "Invalid secret")
             }
@@ -149,17 +150,21 @@ fun startPinnedMessagePolling() {
     Timer().schedule(30.seconds.inWholeMilliseconds, 1.hours.inWholeMilliseconds) {
         runBlocking {
             launch {
-                getPinnedMessagesInfo().forEach { messageInfo ->
-                    try {
-                        editMessage(messageInfo.chatId, messageInfo.messageId, getFormattedPinnedMessage())
-                    } catch (e: ClientRequestException) {
-                        val message = e.localizedMessage
-                        println("Error: $message")
-                        if (message.contains("bot was kicked from the group chat")) {
-                            removeChatId(messageInfo.chatId)
-                        }
-                    }
-                }
+                refreshPinnedMessages()
+            }
+        }
+    }
+}
+
+private suspend fun refreshPinnedMessages() {
+    getPinnedMessagesInfo().forEach { messageInfo ->
+        try {
+            editMessage(messageInfo.chatId, messageInfo.messageId, getFormattedPinnedMessage())
+        } catch (e: ClientRequestException) {
+            val message = e.localizedMessage
+            println("Error: $message")
+            if (message.contains("bot was kicked from the group chat")) {
+                removeChatId(messageInfo.chatId)
             }
         }
     }

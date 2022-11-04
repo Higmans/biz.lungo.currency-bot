@@ -7,6 +7,8 @@ import io.ktor.client.engine.apache.*
 import io.ktor.client.features.json.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.File
 
 lateinit var telegramClient: HttpClient
@@ -74,10 +76,14 @@ fun main(args: Array<String>) {
         configureBot()
     }.start()
 
-    fetchNbuRates()
-//    startMinfinScraping()
-    startPinnedMessagePolling()
     if (!lastUpdatedFile.exists() || currentPrices.isEmpty()) {
-        updateRates(lastUpdatedFile)
+        runBlocking {
+            launch {
+                updateRates(lastUpdatedFile)
+                fetchNbuRates()
+                startPinnedMessagePolling()
+            }
+        }
     }
+//    startMinfinScraping()
 }
