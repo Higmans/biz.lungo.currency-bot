@@ -80,7 +80,7 @@ fun main(args: Array<String>) {
         runBlocking {
             launch {
                 updateRates(lastUpdatedFile)
-                fetchNbuRates()
+//                fetchNbuRates()
                 startPinnedMessagePolling()
             }
         }
