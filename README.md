@@ -1,6 +1,6 @@
 # Currency Bot for Telegram
 
-To start, run fat jar from /release/currency-bot.jar
-Provide Telegram Bot API key with "-t" argument and CoinMarketCap API key with "-c" argument
-
-`java -jar currency-bot.jar -t ***** -c *****`
+Usage:
+1. Fill missing properties in `sample.env` and rename it to `.env`
+2. Build JAR file with `./gradlew shadowJar copyRelease` command or take it from [releases]
+3. Use provided `docker-compose.yml` file to build docker image and start the bot

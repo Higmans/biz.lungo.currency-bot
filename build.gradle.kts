@@ -1,18 +1,23 @@
+@file:Suppress("ktPropBy")
+
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 val ktorVersion: String by project
 val kotlinVersion: String by project
 val logbackVersion: String by project
 val skrapeVersion: String by project
 val kotlinCsvVersion: String by project
+val kMongoVersion: String by project
 
 plugins {
     application
-    kotlin("jvm") version "1.6.0"
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.6.10"
-    id("com.github.johnrengelman.shadow") version "7.1.0"
+    kotlin("jvm") version "1.9.0"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20-RC"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
-group = "lungo.biz"
-version = "0.5.3"
+group = "biz.lungo"
+version = "0.6.0"
 application {
     mainClass.set("biz.lungo.currencybot.ApplicationKt")
 }
@@ -23,16 +28,23 @@ repositories {
 
 dependencies {
     implementation("io.ktor:ktor-server-core:$ktorVersion")
-    implementation("io.ktor:ktor-gson:$ktorVersion")
+    implementation("io.ktor:ktor-server-call-logging:$ktorVersion")
     implementation("io.ktor:ktor-serialization:$ktorVersion")
     implementation("io.ktor:ktor-server-host-common:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-client-core:$ktorVersion")
+    implementation("io.ktor:ktor-client-logging:$ktorVersion")
+    implementation("io.ktor:ktor-client-apache:$ktorVersion")
+    implementation("io.ktor:ktor-client-gson:$ktorVersion")
+    implementation("io.ktor:ktor-client-auth:$ktorVersion")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-gson:$ktorVersion")
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
     implementation("it.skrape:skrapeit:$skrapeVersion")
-    implementation("io.ktor:ktor-client-apache:$ktorVersion")
-    implementation("io.ktor:ktor-client-serialization:$ktorVersion")
-    implementation("io.ktor:ktor-client-gson:$ktorVersion")
-    implementation("com.github.doyaaaaaken:kotlin-csv-jvm:$kotlinCsvVersion")
+    implementation("org.litote.kmongo:kmongo:$kMongoVersion")
+    implementation("org.litote.kmongo:kmongo-coroutine:$kMongoVersion")
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 kotlin.sourceSets.all {
@@ -62,4 +74,18 @@ tasks {
     named<Copy>("copyRelease") {
         dependsOn(shadowJar)
     }
+}
+
+val compileKotlin: KotlinCompile by tasks
+compileKotlin.kotlinOptions {
+    jvmTarget = "20"
+}
+
+val compileTestKotlin: KotlinCompile by tasks
+compileTestKotlin.kotlinOptions {
+    jvmTarget = "20"
+}
+
+kotlin {
+    jvmToolchain(20)
 }

@@ -1,1 +1,1 @@
-rootProject.name = "lungo.biz.currency-bot"
+rootProject.name = "biz.lungo.currency-bot"

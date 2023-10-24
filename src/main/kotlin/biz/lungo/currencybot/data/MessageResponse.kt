@@ -14,7 +14,8 @@ data class Chat(
     @SerializedName("id") var id: Long,
     @SerializedName("first_name") var firstName: String? = null,
     @SerializedName("username") var username: String? = null,
-    @SerializedName("type") var type: String? = null
+    @SerializedName("title") var title: String? = null,
+    @SerializedName("type") var type: ChatType
 
 )
 

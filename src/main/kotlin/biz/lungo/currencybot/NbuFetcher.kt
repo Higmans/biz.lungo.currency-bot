@@ -1,28 +1,30 @@
 package biz.lungo.currencybot
 
 import biz.lungo.currencybot.data.NbuRate
+import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import java.util.*
-import kotlin.concurrent.schedule
-import kotlin.time.Duration.Companion.hours
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 
-val nbuRates = arrayListOf<NbuRate>()
+private val ratesDb = mongoClient.getDatabase("rates")
+private val nbuCollection = ratesDb.getCollection<NbuRate>()
 
-fun fetchNbuRates() {
-    Timer().schedule(0, 3.hours.inWholeMilliseconds) {
-        runBlocking {
-            launch {
-                nbuRates.clear()
-                nbuRates.addAll(
-                    nbuClient.get<List<NbuRate>>(NBU_RATES_PATH) {
-                        contentType(ContentType.Application.Json)
-                    }
-                )
-                nbuRates.add(NbuRate("UAH", "Українська Гривня", 1.0))
-            }
-        }
-    }
+suspend fun fetchNbuRates() {
+    nbuCollection.drop()
+    val nbuRates = arrayListOf<NbuRate>()
+    nbuRates.addAll(
+        nbuClient.get(NBU_RATES_PATH_FORMAT.format(getFormattedDate())) {
+            contentType(ContentType.Application.Json)
+        }.body<List<NbuRate>>()
+    )
+    nbuRates.add(NbuRate("UAH", "Українська Гривня", 1.0))
+    nbuCollection.insertMany(nbuRates)
+}
+
+private fun getFormattedDate() =
+    Instant.now().atZone(gmtPlus3).format(DateTimeFormatter.ofPattern("YYYYMMdd"))
+
+suspend fun getNbuRates(): List<NbuRate> {
+    return nbuCollection.find().toList()
 }

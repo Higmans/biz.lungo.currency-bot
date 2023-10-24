@@ -1,5 +1,14 @@
 # Project exclude paths
 /.gradle/
 /build/
-/last-updated
-/pinnedIds.csv
+/.env
+/.idea/.gitignore
+/.idea/.name
+/.idea/compiler.xml
+/.idea/currency-bot.iml
+/.idea/gradle.xml
+/.idea/jarRepositories.xml
+/.idea/kotlinc.xml
+/.idea/misc.xml
+/.idea/uiDesigner.xml
+/.idea/vcs.xml
