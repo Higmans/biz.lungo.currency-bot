@@ -36,6 +36,12 @@ data class Message(
     @SerializedName("chat") var chat: Chat,
     @SerializedName("date") var date: Long,
     @SerializedName("text") var text: String,
-    @SerializedName("reply_to_message") var replyToMessage: Message?
+    @SerializedName("reply_to_message") var replyToMessage: Message? = null,
+    @SerializedName("author_signature") var authorSignature: String? = null,
+    @SerializedName("sender_boost_count") var senderBoostCount: Int? = null,
+    @SerializedName("reply_markup") var replyMarkup: ReplyMarkup? = null,
+    @SerializedName("has_protected_content") var hasProtectedContent: Boolean? = null,
+    @SerializedName("is_topic_message") var isTopicMessage: Boolean? = null,
+    @SerializedName("message_thread_id") var messageThreadId: Int? = null
 
 )

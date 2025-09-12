@@ -21,7 +21,10 @@ suspend fun fetchFinanceRates() {
         financeClient.get(FINANCE_RATES_PATH_FORMAT.format(it.name)) {
             contentType(ContentType.Application.Json)
         }.body<FinanceResponse>().toFinanceRate(it).takeIf { rate ->
-            rate.ask.getCount() >= MINIMUM_COUNT && rate.bid.getCount() >= MINIMUM_COUNT
+            rate.ask.getCount() >= MINIMUM_COUNT &&
+                    rate.bid.getCount() >= MINIMUM_COUNT &&
+                    rate.ask?.rate != null && rate.ask.rate > 0 &&
+                    rate.bid?.rate != null && rate.bid.rate > 0
         }
     }
     financeRates.filterNotNull().forEach {

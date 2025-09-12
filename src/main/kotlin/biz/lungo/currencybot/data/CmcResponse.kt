@@ -18,7 +18,9 @@ data class Data(
     @SerializedName("XRP") val xrp: Coin,
     @SerializedName("DOGE") val doge: Coin,
     @SerializedName("DOT") val dot: Coin,
-    @SerializedName("CAKE") val cake: Coin
+    @SerializedName("CAKE") val cake: Coin,
+    @SerializedName("TON") val ton: Coin,
+    @SerializedName("TRUMP") val trump: Coin,
 )
 
 data class Coin(

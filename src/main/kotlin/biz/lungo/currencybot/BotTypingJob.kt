@@ -31,11 +31,14 @@ class BotTypingJob(private val chatId: Long) {
         job?.cancel()
     }
 
-    private suspend fun sendChatTypingAction() =
+    private suspend fun sendChatTypingAction() = try {
         telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendChatAction") {
             contentType(ContentType.Application.Json)
             setBody(ChatAction(chatId, ActionType.TYPING))
         }.body<ChatActionResult>()
+    } catch (e: Exception) {
+        println("Unable to send Typing action, message - ${e.message}")
+    }
 
     companion object {
         // according to doc https://core.telegram.org/bots/api#sendchataction

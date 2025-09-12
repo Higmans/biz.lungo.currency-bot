@@ -17,7 +17,7 @@ data class AppProperties(
     companion object {
         operator fun invoke() = with(PropertiesReader) {
             AppProperties(
-                getProperty(APP_HOST_KEY),
+                getProperty(key = APP_HOST_KEY),
                 getProperty(APP_PORT_KEY),
                 getProperty(MONGO_HOST_KEY),
                 getProperty(MONGO_PORT_KEY),

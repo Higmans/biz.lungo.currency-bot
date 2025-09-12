@@ -17,7 +17,7 @@ plugins {
 }
 
 group = "biz.lungo"
-version = "0.6.0"
+version = "0.6.1"
 application {
     mainClass.set("biz.lungo.currencybot.ApplicationKt")
 }

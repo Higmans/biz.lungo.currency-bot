@@ -8,6 +8,8 @@ services:
     container_name: currbot_app
     env_file:
       - .env
+    networks:
+      - curr_network
     ports:
       - "${APP_PORT}:${APP_PORT}"
   mongo:
@@ -16,6 +18,8 @@ services:
     command: mongod --port ${MONGO_PORT}
     volumes:
       - mongo-currbot:/data/db
+    networks:
+      - curr_network
     ports:
       - "${MONGO_PORT}:${MONGO_PORT}"
     environment:
@@ -24,3 +28,7 @@ services:
 
 volumes:
   mongo-currbot:
+
+networks:
+  curr_network:
+    external: true

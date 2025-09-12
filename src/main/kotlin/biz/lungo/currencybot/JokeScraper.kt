@@ -1,6 +1,9 @@
 package biz.lungo.currencybot
 
 import biz.lungo.currencybot.data.LastKnownJoke
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.ktor.http.*
 import it.skrape.core.htmlDocument
 import it.skrape.fetcher.HttpFetcher
 import it.skrape.fetcher.response
@@ -24,11 +27,7 @@ suspend fun getNewJoke(): String {
                 p {
                     withClass = "coupon-field"
                     text = findFirst {
-                        i {
-                            findFirst {
-                                this.text
-                            }
-                        }
+                        this.text
                     }
                 }
             }
@@ -36,3 +35,41 @@ suspend fun getNewJoke(): String {
     }
     return text
 }
+
+suspend fun updateLastKnownJoke() {
+    val count: Int? = skrape(HttpFetcher) {
+        request { url = LAST_KNOWN_JOKE_URL }
+        response {
+            htmlDocument {
+                div {
+                    withClass = "blockhoveranekdot"
+                    val allText = findFirst {
+                        div {
+                            withClass = "textanpid"
+                            findFirst {
+                                text
+                            }
+                        }
+                    }
+
+                    val countFromText = Regex("""(\d+)\s+анекдотів""")
+                        .findAll(allText)
+                        .lastOrNull()
+                        ?.groupValues
+                        ?.getOrNull(1)
+                        ?.toIntOrNull()
+                    if (countFromText != null) return@div countFromText else null
+                }
+            }
+        }
+    }
+    if (count != null) {
+        val collection = configDb.getCollection<LastKnownJoke>()
+        collection.drop()
+        collection.insertOne(LastKnownJoke(count))
+    }
+}
+
+suspend fun getMemeUrl(): String = randomMemeClient.get(RANDOM_MEME_URL) {
+    contentType(ContentType.Text.Plain)
+}.body<String>()

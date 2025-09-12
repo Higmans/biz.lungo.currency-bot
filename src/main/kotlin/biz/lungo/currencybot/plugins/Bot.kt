@@ -13,6 +13,7 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.util.logging.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -24,7 +25,7 @@ import kotlin.collections.ArrayList
 import kotlin.time.Duration.Companion.seconds
 
 private val br = System.lineSeparator()
-private var waitingForReply = false
+private val waitingForReply = mutableListOf<Long>()
 
 private val botInfoCollection = configDb.getCollection<BotUser>()
 private val pinnedDb = mongoClient.getDatabase("pinned")
@@ -34,27 +35,31 @@ fun Application.configureBot() {
 
     runBlocking {
         launch {
-            delay(10.seconds)
+            delay(15.seconds)
+            fetchNbuRates()
+            fetchFinanceRates()
             botInfoCollection.drop()
             val botUser = getMe()
             botInfoCollection.insertOne(BotUser(botUser.id, botUser.username, botUser.firstName))
+            if (!PropertiesReader.isDebug()) refreshPinnedMessages(this@configureBot.log)
         }
     }
 
     routing {
 
         post("/$botPath") {
-            val message = call.receive<MessageResponse>().message
+            val update = call.receive<MessageResponse>()
             call.respondText("OK")
-            val messageText = message?.text
-            val chatId = message?.chat?.id ?: return@post
+            val messageText = update.message?.text
+            val chatId = update.message?.chat?.id ?: return@post
             val diff = ChronoUnit.MINUTES.between(
-                Date(message.date * 1000).toInstant().atZone(gmtPlus3),
+                Date(update.message?.date?.toLong() ?: 0 * 1000).toInstant().atZone(gmtPlus3),
                 Instant.now().atZone(gmtPlus3)
             )
             if (diff > 10) return@post
-            if (waitingForReply) {
-                waitingForReply = false
+
+            if (waitingForReply.contains(chatId)) {
+                waitingForReply.remove(chatId)
                 val output = formatNbuRatesResponse(messageText, getNbuRates())
                 sendTelegramMessage(chatId, output)
                 return@post
@@ -80,19 +85,21 @@ fun Application.configureBot() {
                         sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()))
                     } else {
                         sendTelegramMessage(chatId, "Яка саме валюта цікавить?")
-                        waitingForReply = true
+                        waitingForReply.add(chatId)
                     }
                     typingJob.finish()
                 }
                 Command.Crypto -> {
                     val typingJob = BotTypingJob(chatId).start(this)
-                    val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT, CAKE))
+                    val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT, CAKE, TON, TRUMP))
                     sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.doge.symbol}: $${rates.data.doge.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.dot.symbol}: $${rates.data.dot.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}")
+                            "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}${br}" +
+                            "${rates.data.ton.symbol}: $${rates.data.ton.quote.quoteValue.price.formatValue()}${br}" +
+                            "${rates.data.trump.symbol}: $${rates.data.trump.quote.quoteValue.price.formatValue()}")
                     typingJob.finish()
                 }
                 Command.Joke -> {
@@ -105,6 +112,9 @@ fun Application.configureBot() {
                     val oilPrices = getOilPrices()
                     sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}")
                     typingJob.finish()
+                }
+                Command.Meme -> {
+                    sendTelegramPhoto(chatId, getMemeUrl())
                 }
                 else -> Unit
             }
@@ -125,7 +135,7 @@ fun Application.configureBot() {
             if (secret == botPath) {
                 call.respondText("OK")
                 fetchFinanceRates()
-                refreshPinnedMessages()
+                refreshPinnedMessages(this@configureBot.log)
             } else {
                 call.respond(HttpStatusCode.Forbidden, "Invalid secret")
             }
@@ -165,7 +175,7 @@ private fun formatNbuRatesResponse(input: String?, nbuRates: List<NbuRate>): Str
     }
 }
 
-suspend fun refreshPinnedMessages() {
+suspend fun refreshPinnedMessages(logger: Logger) {
     val usd = getFinanceRate(USD)
     val eur = getFinanceRate(EUR)
     val gbp = getFinanceRate(GBP)
@@ -176,8 +186,8 @@ suspend fun refreshPinnedMessages() {
             editMessage(messageInfo.chatId, messageInfo.messageId, getFormattedPinnedMessage(usd, eur, gbp, btc))
         } catch (e: ClientRequestException) {
             val message = e.localizedMessage
-            println("Error: $message")
-            if (message.contains("bot was kicked from the group chat")) {
+            logger.error("Error: $message")
+            if (message.contains("bot was kicked from the group chat") || message.contains("message to edit not found")) {
                 removeChatId(messageInfo.chatId)
             }
         }
@@ -191,13 +201,13 @@ private suspend fun removeChatId(chatId: Long) {
 private suspend fun getPinnedMessagesInfo(): List<PinnedMessageInfo> = pinnedCollection.find().toList()
 
 private fun getFormattedPinnedMessage(usd: FinanceRate, eur: FinanceRate, gbp: FinanceRate, btc: Coin): String {
-    return "\uD83D\uDCC8$br • $: ${usd.formatBidAsk()}$br • €: ${eur.formatBidAsk()}$br • £: ${gbp.formatBidAsk()}$br • BTC: $${btc.quote.quoteValue.price.formatValue()}"
+    return "\uD83D\uDCC8${br}$: ${usd.formatBidAsk()}${br}€: ${eur.formatBidAsk()}${br}£: ${gbp.formatBidAsk()}${br}฿: $${btc.quote.quoteValue.price.formatValue()}"
 }
 
 private fun FinanceRate.formatBidAsk() = if (bid?.rate == null || ask?.rate == null) {
     "~/~"
 } else {
-    "${bid.rate.formatValue()}/${ask.rate.formatValue()} ${getChangeSymbol()}"
+    "${bid.rate.formatValue()}/${ask.rate.formatValue()}${getChangeSymbol()}"
 }
 
 private fun FinanceRate.getChangeSymbol() = when {
@@ -228,6 +238,12 @@ private suspend fun sendTelegramMessage(chatId: Long, message: String, markdown:
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendMessage") {
         contentType(ContentType.Application.Json)
         setBody(MessageRequest(chatId = chatId, text = message, if (markdown) ParseMode.HTML.value else null))
+    }.body<SendMessageResult>()
+
+private suspend fun sendTelegramPhoto(chatId: Long, photoUrl: String) =
+    telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendPhoto") {
+        contentType(ContentType.Application.Json)
+        setBody(PhotoRequest(chatId = chatId, photoUrl = photoUrl))
     }.body<SendMessageResult>()
 
 private suspend fun pinMessage(chatId: Long, messageId: Long) {
@@ -267,7 +283,8 @@ private enum class Command(val commandText: String) {
     NbuRate("/nburate"),
     Crypto("/crypto"),
     Joke("/joke"),
-    Oil("/oil")
+    Oil("/oil"),
+    Meme("/meme")
 }
 
 private data class PinnedMessageInfo(
@@ -276,5 +293,5 @@ private data class PinnedMessageInfo(
 )
 
 private enum class Cryptocurrency {
-    BTC, ETH, XRP, DOGE, DOT, CAKE
+    BTC, ETH, XRP, DOGE, DOT, CAKE, TON, TRUMP
 }
