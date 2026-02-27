@@ -2,9 +2,10 @@ package biz.lungo.currencybot.data
 
 import com.google.gson.annotations.SerializedName
 
-data class EditMessageRequest(
+data class PhotoRequest(
+
     @SerializedName("chat_id") val chatId: Long,
-    @SerializedName("message_id") val messageId: Long,
-    @SerializedName("text") val text: String,
+    @SerializedName("photo") val photoUrl: String,
     @SerializedName("business_connection_id") val businessConnectionId: String? = null
+
 )
