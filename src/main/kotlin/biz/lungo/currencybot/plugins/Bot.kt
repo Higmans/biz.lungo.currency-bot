@@ -224,10 +224,10 @@ private suspend fun sendAndPinMessage(chatId: Long) {
     }
 }
 
-private suspend fun sendTelegramMessage(chatId: Long, message: String, markdown: Boolean = false) =
+private suspend fun sendTelegramMessage(chatId: Long, message: String, markdown: Boolean = false, businessConnectionId: String? = null) =
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendMessage") {
         contentType(ContentType.Application.Json)
-        setBody(MessageRequest(chatId = chatId, text = message, if (markdown) ParseMode.HTML.value else null))
+        setBody(MessageRequest(chatId = chatId, text = message, if (markdown) ParseMode.HTML.value else null, businessConnectionId = businessConnectionId))
     }.body<SendMessageResult>()
 
 private suspend fun pinMessage(chatId: Long, messageId: Long) {
@@ -237,10 +237,10 @@ private suspend fun pinMessage(chatId: Long, messageId: Long) {
     }.body<HttpResponse>()
 }
 
-private suspend fun editMessage(chatId: Long, messageId: Long, text: String) {
+private suspend fun editMessage(chatId: Long, messageId: Long, text: String, businessConnectionId: String? = null) {
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/editMessageText") {
         contentType(ContentType.Application.Json)
-        setBody(EditMessageRequest(chatId, messageId, text))
+        setBody(EditMessageRequest(chatId, messageId, text, businessConnectionId = businessConnectionId))
     }.body<HttpResponse>()
 }
 
