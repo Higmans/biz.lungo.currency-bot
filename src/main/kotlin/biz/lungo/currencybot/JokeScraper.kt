@@ -12,7 +12,7 @@ import it.skrape.selects.html5.*
 import kotlin.random.Random
 
 suspend fun getNewJoke(): String {
-    var text = ""
+    var jokeText = ""
 
     val collection = configDb.getCollection<LastKnownJoke>()
     val lastKnownJoke = collection.find().first()?.value
@@ -20,53 +20,73 @@ suspend fun getNewJoke(): String {
         collection.insertOne(LastKnownJoke(DEFAULT_LAST_KNOWN_JOKE))
     }
 
-    skrape(HttpFetcher) {
-        request { url = RANDOM_JOKE_URL + Random.nextInt(1, lastKnownJoke ?: DEFAULT_LAST_KNOWN_JOKE) }
-        response {
-            htmlDocument {
-                p {
-                    withClass = "coupon-field"
-                    text = findFirst {
-                        this.text
+    val jokeId = Random.nextInt(1, lastKnownJoke ?: DEFAULT_LAST_KNOWN_JOKE)
+    val jokeUrl = if (jokeId <= OLD_FORMAT_MAX_JOKE_ID) "$RANDOM_JOKE_URL$jokeId" else "$NEW_JOKE_URL$jokeId/"
+    println("Fetching joke from: $jokeUrl")
+
+    try {
+        skrape(HttpFetcher) {
+            request { url = jokeUrl }
+            response {
+                htmlDocument {
+                    jokeText = findFirst(".coupon-field") {
+                        text
                     }
                 }
             }
         }
+    } catch (e: Exception) {
+        println("Error fetching joke from $jokeUrl: ${e.message}")
     }
-    return text
+
+    if (jokeText.isBlank()) {
+        println("Warning: joke text is empty for URL $jokeUrl")
+    }
+    return jokeText
 }
 
 suspend fun updateLastKnownJoke() {
-    val count: Int? = skrape(HttpFetcher) {
-        request { url = LAST_KNOWN_JOKE_URL }
-        response {
-            htmlDocument {
-                div {
-                    withClass = "blockhoveranekdot"
-                    val allText = findFirst {
-                        div {
-                            withClass = "textanpid"
-                            findFirst {
-                                text
+    println("Updating last known joke from: $LAST_KNOWN_JOKE_URL")
+    val count: Int? = try {
+        skrape(HttpFetcher) {
+            request { url = LAST_KNOWN_JOKE_URL }
+            response {
+                htmlDocument {
+                    div {
+                        withClass = "blockhoveranekdot"
+                        val allText = findFirst {
+                            div {
+                                withClass = "textanpid"
+                                findFirst {
+                                    text
+                                }
                             }
                         }
-                    }
+                        println("Parsed text from index page: $allText")
 
-                    val countFromText = Regex("""(\d+)\s+анекдотів""")
-                        .findAll(allText)
-                        .lastOrNull()
-                        ?.groupValues
-                        ?.getOrNull(1)
-                        ?.toIntOrNull()
-                    if (countFromText != null) return@div countFromText else null
+                        val countFromText = Regex("""(\d+)\s+анекдотів""")
+                            .findAll(allText)
+                            .lastOrNull()
+                            ?.groupValues
+                            ?.getOrNull(1)
+                            ?.toIntOrNull()
+                        println("Extracted joke count: $countFromText")
+                        if (countFromText != null) return@div countFromText else null
+                    }
                 }
             }
         }
+    } catch (e: Exception) {
+        println("Error updating last known joke: ${e.message}")
+        null
     }
     if (count != null) {
         val collection = configDb.getCollection<LastKnownJoke>()
         collection.drop()
         collection.insertOne(LastKnownJoke(count))
+        println("Updated last known joke to: $count")
+    } else {
+        println("Warning: could not determine last known joke count")
     }
 }
 

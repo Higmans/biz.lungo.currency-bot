@@ -53,7 +53,7 @@ fun Application.configureBot() {
             val messageText = update.message?.text
             val chatId = update.message?.chat?.id ?: return@post
             val diff = ChronoUnit.MINUTES.between(
-                Date(update.message?.date?.toLong() ?: 0 * 1000).toInstant().atZone(gmtPlus3),
+                Date((update.message?.date ?: 0) * 1000).toInstant().atZone(gmtPlus3),
                 Instant.now().atZone(gmtPlus3)
             )
             if (diff > 10) return@post
@@ -136,6 +136,16 @@ fun Application.configureBot() {
                 call.respondText("OK")
                 fetchFinanceRates()
                 refreshPinnedMessages(this@configureBot.log)
+            } else {
+                call.respond(HttpStatusCode.Forbidden, "Invalid secret")
+            }
+        }
+
+        post("/refreshJokes") {
+            val secret = call.receive<RefreshRequest>().secret
+            if (secret == botPath) {
+                call.respondText("OK")
+                updateLastKnownJoke()
             } else {
                 call.respond(HttpStatusCode.Forbidden, "Invalid secret")
             }
