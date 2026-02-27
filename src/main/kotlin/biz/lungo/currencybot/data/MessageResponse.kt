@@ -5,7 +5,11 @@ import com.google.gson.annotations.SerializedName
 data class MessageResponse(
 
     @SerializedName("update_id") var updateId: Long,
-    @SerializedName("message") var message: Message?
+    @SerializedName("message") var message: Message?,
+    @SerializedName("business_connection") var businessConnection: BusinessConnection? = null,
+    @SerializedName("business_message") var businessMessage: Message? = null,
+    @SerializedName("edited_business_message") var editedBusinessMessage: Message? = null,
+    @SerializedName("deleted_business_messages") var deletedBusinessMessages: BusinessMessagesDeleted? = null
 
 )
 
@@ -36,6 +40,7 @@ data class Message(
     @SerializedName("chat") var chat: Chat,
     @SerializedName("date") var date: Long,
     @SerializedName("text") var text: String,
-    @SerializedName("reply_to_message") var replyToMessage: Message?
+    @SerializedName("reply_to_message") var replyToMessage: Message?,
+    @SerializedName("business_connection_id") var businessConnectionId: String? = null
 
 )
