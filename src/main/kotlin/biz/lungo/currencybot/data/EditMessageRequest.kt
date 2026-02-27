@@ -5,5 +5,6 @@ import com.google.gson.annotations.SerializedName
 data class EditMessageRequest(
     @SerializedName("chat_id") val chatId: Long,
     @SerializedName("message_id") val messageId: Long,
-    @SerializedName("text") val text: String
+    @SerializedName("text") val text: String,
+    @SerializedName("business_connection_id") val businessConnectionId: String? = null
 )
