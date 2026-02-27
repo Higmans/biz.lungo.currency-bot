@@ -44,10 +44,16 @@ fun Application.configureBot() {
     routing {
 
         post("/$botPath") {
-            val message = call.receive<MessageResponse>().message
+            val update = call.receive<MessageResponse>()
             call.respondText("OK")
+            if (update.businessConnection != null) {
+                println("Business connection update: ${update.businessConnection}")
+                return@post
+            }
+            val message = update.message ?: update.businessMessage
             val messageText = message?.text
             val chatId = message?.chat?.id ?: return@post
+            val businessConnectionId = message?.businessConnectionId
             val diff = ChronoUnit.MINUTES.between(
                 Date(message.date * 1000).toInstant().atZone(gmtPlus3),
                 Instant.now().atZone(gmtPlus3)
@@ -56,54 +62,60 @@ fun Application.configureBot() {
             if (waitingForReply) {
                 waitingForReply = false
                 val output = formatNbuRatesResponse(messageText, getNbuRates())
-                sendTelegramMessage(chatId, output)
+                sendTelegramMessage(chatId, output, businessConnectionId = businessConnectionId)
                 return@post
             }
             when(messageText.parseCommand()) {
                 Command.Start -> {
-                    val savedPinnedMessage = getPinnedMessagesInfo().find { it.chatId == chatId }
-                    if (savedPinnedMessage != null) {
-                        sendTelegramMessage(chatId, "Я вже стартував в цьому чаті, спробуй інші команди \uD83D\uDE44")
+                    if (businessConnectionId != null) {
+                        sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Я бот курсів валют. Спробуй /nburate, /crypto, /oil або /joke", businessConnectionId = businessConnectionId)
                     } else {
-                        sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Оновлюю курси...")
-                        fetchNbuRates()
-                        delay(3.seconds)
-                        sendAndPinMessage(chatId)
+                        val savedPinnedMessage = getPinnedMessagesInfo().find { it.chatId == chatId }
+                        if (savedPinnedMessage != null) {
+                            sendTelegramMessage(chatId, "Я вже стартував в цьому чаті, спробуй інші команди \uD83D\uDE44")
+                        } else {
+                            sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Оновлюю курси...")
+                            fetchNbuRates()
+                            delay(3.seconds)
+                            sendAndPinMessage(chatId)
+                        }
                     }
                 }
                 Command.NbuRate -> {
                     val botUser = botInfoCollection.find().first() ?: return@post
-                    val typingJob = BotTypingJob(chatId).start(this)
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
                     val regex = Pattern.compile("${Command.NbuRate.commandText}(@${botUser.username})?")
                     val param = messageText?.split(regex)?.getOrNull(1)?.trim()
                     if (param?.isNotBlank() == true) {
-                        sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()))
+                        sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()), businessConnectionId = businessConnectionId)
                     } else {
-                        sendTelegramMessage(chatId, "Яка саме валюта цікавить?")
+                        sendTelegramMessage(chatId, "Яка саме валюта цікавить?", businessConnectionId = businessConnectionId)
                         waitingForReply = true
                     }
                     typingJob.finish()
                 }
                 Command.Crypto -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
                     val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT, CAKE))
                     sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.doge.symbol}: $${rates.data.doge.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.dot.symbol}: $${rates.data.dot.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}")
+                            "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}",
+                        businessConnectionId = businessConnectionId)
                     typingJob.finish()
                 }
                 Command.Joke -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
-                    sendTelegramMessage(chatId, getNewJoke())
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
+                    sendTelegramMessage(chatId, getNewJoke(), businessConnectionId = businessConnectionId)
                     typingJob.finish()
                 }
                 Command.Oil -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
                     val oilPrices = getOilPrices()
-                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}")
+                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}",
+                        businessConnectionId = businessConnectionId)
                     typingJob.finish()
                 }
                 else -> Unit
