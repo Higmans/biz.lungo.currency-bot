@@ -66,6 +66,7 @@ fun Application.configureBot() {
             if (diff > 10) return@post
 
             if (waitingForReply.contains(chatId)) {
+                if (messageText.isNullOrBlank()) return@post
                 waitingForReply.remove(chatId)
                 val output = formatNbuRatesResponse(messageText, getNbuRates())
                 sendTelegramMessage(chatId, output, businessConnectionId = businessConnectionId)
