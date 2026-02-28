@@ -27,7 +27,7 @@ import kotlin.collections.ArrayList
 import kotlin.time.Duration.Companion.seconds
 
 private val br = System.lineSeparator()
-private val waitingForReply = CopyOnWriteArrayList<Long>()
+private val waitingForReply = CopyOnWriteArrayList<Pair<Long, String?>>()
 private val businessConnectionCanReply = ConcurrentHashMap<String, Boolean>()
 
 private val botInfoCollection = configDb.getCollection<BotUser>()
@@ -55,8 +55,12 @@ fun Application.configureBot() {
             call.respondText("OK")
             val businessConnection = update.businessConnection
             if (businessConnection != null) {
-                this@configureBot.log.info("Business connection event: ${businessConnection.id}, canReply=${businessConnection.canReply}")
-                businessConnectionCanReply[businessConnection.id] = businessConnection.canReply
+                this@configureBot.log.info("Business connection event: ${businessConnection.id}, canReply=${businessConnection.canReply}, isEnabled=${businessConnection.isEnabled}")
+                if (businessConnection.isEnabled) {
+                    businessConnectionCanReply[businessConnection.id] = businessConnection.canReply
+                } else {
+                    businessConnectionCanReply.remove(businessConnection.id)
+                }
                 return@post
             }
             val message = update.message ?: update.businessMessage ?: return@post
@@ -70,9 +74,9 @@ fun Application.configureBot() {
             )
             if (diff > 10) return@post
 
-            if (waitingForReply.contains(chatId)) {
+            if (waitingForReply.contains(Pair(chatId, businessConnectionId))) {
                 if (messageText.isNullOrBlank()) return@post
-                waitingForReply.remove(chatId)
+                waitingForReply.remove(Pair(chatId, businessConnectionId))
                 val output = formatNbuRatesResponse(messageText, getNbuRates())
                 sendTelegramMessage(chatId, output, businessConnectionId = businessConnectionId)
                 return@post
@@ -102,7 +106,7 @@ fun Application.configureBot() {
                         sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()), businessConnectionId = businessConnectionId)
                     } else {
                         sendTelegramMessage(chatId, "Яка саме валюта цікавить?", businessConnectionId = businessConnectionId)
-                        waitingForReply.add(chatId)
+                        waitingForReply.add(Pair(chatId, businessConnectionId))
                     }
                     typingJob.finish()
                 }
