@@ -56,9 +56,9 @@ Enable the bot to receive and respond to commands in business-connected chats (p
 **Files:**
 - Modify: `src/main/kotlin/biz/lungo/currencybot/BotTypingJob.kt`
 
-- [ ] Add `businessConnectionId: String? = null` as second constructor parameter
-- [ ] Pass `businessConnectionId` when constructing `ChatAction` in `sendChatTypingAction()`
-- [ ] Build the project to confirm compilation
+- [x] Add `businessConnectionId: String? = null` as second constructor parameter
+- [x] Pass `businessConnectionId` when constructing `ChatAction` in `sendChatTypingAction()`
+- [x] Build the project to confirm compilation
 
 ### Task 4: Update Bot.kt command handler for business mode
 
