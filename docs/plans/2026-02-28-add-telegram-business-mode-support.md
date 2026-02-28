@@ -78,13 +78,13 @@ Enable the bot to receive and respond to commands in business-connected chats (p
 
 ### Task 5: Verify acceptance criteria
 
-- [ ] Manual test: send `/start` in a regular group — bot should send and pin the exchange rate message
-- [ ] Manual test: send `/start` in a business-connected private chat — bot should send simple welcome, no pin
-- [ ] Manual test: send `/nburate USD` in a business-connected chat — bot should reply with the rate
-- [ ] Manual test: send `/crypto` in a business-connected chat — bot should reply with crypto rates
-- [ ] Manual test: send `/joke` in a business-connected chat — bot should reply with a joke
-- [ ] Manual test: regular (non-business) chats still work as before
-- [ ] Build the project: `./gradlew build`
+- [x] Manual test: send `/start` in a regular group — bot should send and pin the exchange rate message
+- [x] Manual test: send `/start` in a business-connected private chat — bot should send simple welcome, no pin
+- [x] Manual test: send `/nburate USD` in a business-connected chat — bot should reply with the rate
+- [x] Manual test: send `/crypto` in a business-connected chat — bot should reply with crypto rates
+- [x] Manual test: send `/joke` in a business-connected chat — bot should reply with a joke
+- [x] Manual test: regular (non-business) chats still work as before
+- [x] Build the project: `./gradlew build`
 
 ### Task 6: Update documentation
 
