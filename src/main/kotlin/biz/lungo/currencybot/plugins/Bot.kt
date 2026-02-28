@@ -20,12 +20,13 @@ import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.*
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
 import kotlin.time.Duration.Companion.seconds
 
 private val br = System.lineSeparator()
-private val waitingForReply = mutableListOf<Long>()
+private val waitingForReply = CopyOnWriteArrayList<Long>()
 
 private val botInfoCollection = configDb.getCollection<BotUser>()
 private val pinnedDb = mongoClient.getDatabase("pinned")
@@ -52,7 +53,7 @@ fun Application.configureBot() {
             call.respondText("OK")
             val businessConnection = update.businessConnection
             if (businessConnection != null) {
-                println("Business connection event: ${businessConnection.id}, canReply=${businessConnection.canReply}")
+                this@configureBot.log.info("Business connection event: ${businessConnection.id}, canReply=${businessConnection.canReply}")
                 return@post
             }
             val message = update.message ?: update.businessMessage ?: return@post
@@ -66,8 +67,8 @@ fun Application.configureBot() {
             if (diff > 10) return@post
 
             if (waitingForReply.contains(chatId)) {
-                if (messageText.isNullOrBlank()) return@post
                 waitingForReply.remove(chatId)
+                if (messageText.isNullOrBlank()) return@post
                 val output = formatNbuRatesResponse(messageText, getNbuRates())
                 sendTelegramMessage(chatId, output, businessConnectionId = businessConnectionId)
                 return@post
