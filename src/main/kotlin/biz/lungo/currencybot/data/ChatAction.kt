@@ -6,7 +6,9 @@ data class ChatAction(
     @SerializedName("chat_id")
     val chatId: Long,
     @SerializedName("action")
-    val action: ActionType
+    val action: ActionType,
+    @SerializedName("business_connection_id")
+    val businessConnectionId: String? = null
 )
 
 @Suppress("unused")

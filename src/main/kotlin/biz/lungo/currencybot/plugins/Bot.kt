@@ -20,12 +20,15 @@ import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
 import kotlin.time.Duration.Companion.seconds
 
 private val br = System.lineSeparator()
-private val waitingForReply = mutableListOf<Long>()
+private val waitingForReply = CopyOnWriteArrayList<Pair<Long, String?>>()
+private val businessConnectionCanReply = ConcurrentHashMap<String, Boolean>()
 
 private val botInfoCollection = configDb.getCollection<BotUser>()
 private val pinnedDb = mongoClient.getDatabase("pinned")
@@ -50,71 +53,101 @@ fun Application.configureBot() {
         post("/$botPath") {
             val update = call.receive<MessageResponse>()
             call.respondText("OK")
-            val messageText = update.message?.text
-            val chatId = update.message?.chat?.id ?: return@post
+            val businessConnection = update.businessConnection
+            if (businessConnection != null) {
+                this@configureBot.log.info("Business connection event: ${businessConnection.id}, canReply=${businessConnection.canReply}, isEnabled=${businessConnection.isEnabled}")
+                if (businessConnection.isEnabled) {
+                    businessConnectionCanReply[businessConnection.id] = businessConnection.canReply
+                } else {
+                    businessConnectionCanReply.remove(businessConnection.id)
+                }
+                return@post
+            }
+            val message = update.message ?: update.businessMessage ?: return@post
+            val messageText = message.text
+            val chatId = message.chat.id
+            val businessConnectionId = message.businessConnectionId
+            if (businessConnectionId != null && businessConnectionCanReply[businessConnectionId] != true) return@post
             val diff = ChronoUnit.MINUTES.between(
-                Date((update.message?.date ?: 0) * 1000).toInstant().atZone(gmtPlus3),
+                Date(message.date * 1000).toInstant().atZone(gmtPlus3),
                 Instant.now().atZone(gmtPlus3)
             )
             if (diff > 10) return@post
 
-            if (waitingForReply.contains(chatId)) {
-                waitingForReply.remove(chatId)
+            if (waitingForReply.contains(Pair(chatId, businessConnectionId))) {
+                if (messageText.isNullOrBlank()) return@post
+                waitingForReply.remove(Pair(chatId, businessConnectionId))
                 val output = formatNbuRatesResponse(messageText, getNbuRates())
-                sendTelegramMessage(chatId, output)
+                sendTelegramMessage(chatId, output, businessConnectionId = businessConnectionId)
                 return@post
             }
             when(messageText.parseCommand()) {
                 Command.Start -> {
-                    val savedPinnedMessage = getPinnedMessagesInfo().find { it.chatId == chatId }
-                    if (savedPinnedMessage != null) {
-                        sendTelegramMessage(chatId, "Я вже стартував в цьому чаті, спробуй інші команди \uD83D\uDE44")
+                    if (businessConnectionId != null) {
+                        sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Я готовий до роботи в бізнес-чаті.", businessConnectionId = businessConnectionId)
                     } else {
-                        sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Оновлюю курси...")
-                        fetchNbuRates()
-                        delay(3.seconds)
-                        sendAndPinMessage(chatId)
+                        val savedPinnedMessage = getPinnedMessagesInfo().find { it.chatId == chatId }
+                        if (savedPinnedMessage != null) {
+                            sendTelegramMessage(chatId, "Я вже стартував в цьому чаті, спробуй інші команди \uD83D\uDE44")
+                        } else {
+                            sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Оновлюю курси...")
+                            fetchNbuRates()
+                            delay(3.seconds)
+                            sendAndPinMessage(chatId)
+                        }
                     }
                 }
                 Command.NbuRate -> {
                     val botUser = botInfoCollection.find().first() ?: return@post
-                    val typingJob = BotTypingJob(chatId).start(this)
-                    val regex = Pattern.compile("${Command.NbuRate.commandText}(@${botUser.username})?")
-                    val param = messageText?.split(regex)?.getOrNull(1)?.trim()
-                    if (param?.isNotBlank() == true) {
-                        sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()))
-                    } else {
-                        sendTelegramMessage(chatId, "Яка саме валюта цікавить?")
-                        waitingForReply.add(chatId)
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
+                    try {
+                        val regex = Pattern.compile("${Command.NbuRate.commandText}(@${botUser.username})?")
+                        val param = messageText?.split(regex)?.getOrNull(1)?.trim()
+                        if (param?.isNotBlank() == true) {
+                            sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()), businessConnectionId = businessConnectionId)
+                        } else {
+                            sendTelegramMessage(chatId, "Яка саме валюта цікавить?", businessConnectionId = businessConnectionId)
+                            waitingForReply.add(Pair(chatId, businessConnectionId))
+                        }
+                    } finally {
+                        typingJob.finish()
                     }
-                    typingJob.finish()
                 }
                 Command.Crypto -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
-                    val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT, CAKE, TON, TRUMP))
-                    sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.doge.symbol}: $${rates.data.doge.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.dot.symbol}: $${rates.data.dot.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.ton.symbol}: $${rates.data.ton.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.trump.symbol}: $${rates.data.trump.quote.quoteValue.price.formatValue()}")
-                    typingJob.finish()
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
+                    try {
+                        val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT, CAKE, TON, TRUMP))
+                        sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.doge.symbol}: $${rates.data.doge.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.dot.symbol}: $${rates.data.dot.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.ton.symbol}: $${rates.data.ton.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.trump.symbol}: $${rates.data.trump.quote.quoteValue.price.formatValue()}", businessConnectionId = businessConnectionId)
+                    } finally {
+                        typingJob.finish()
+                    }
                 }
                 Command.Joke -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
-                    sendTelegramMessage(chatId, getNewJoke())
-                    typingJob.finish()
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
+                    try {
+                        sendTelegramMessage(chatId, getNewJoke(), businessConnectionId = businessConnectionId)
+                    } finally {
+                        typingJob.finish()
+                    }
                 }
                 Command.Oil -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
-                    val oilPrices = getOilPrices()
-                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}")
-                    typingJob.finish()
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
+                    try {
+                        val oilPrices = getOilPrices()
+                        sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}", businessConnectionId = businessConnectionId)
+                    } finally {
+                        typingJob.finish()
+                    }
                 }
                 Command.Meme -> {
-                    sendTelegramPhoto(chatId, getMemeUrl())
+                    sendTelegramPhoto(chatId, getMemeUrl(), businessConnectionId = businessConnectionId)
                 }
                 else -> Unit
             }
@@ -244,16 +277,16 @@ private suspend fun sendAndPinMessage(chatId: Long) {
     }
 }
 
-private suspend fun sendTelegramMessage(chatId: Long, message: String, markdown: Boolean = false) =
+private suspend fun sendTelegramMessage(chatId: Long, message: String, markdown: Boolean = false, businessConnectionId: String? = null) =
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendMessage") {
         contentType(ContentType.Application.Json)
-        setBody(MessageRequest(chatId = chatId, text = message, if (markdown) ParseMode.HTML.value else null))
+        setBody(MessageRequest(chatId = chatId, text = message, parseMode = if (markdown) ParseMode.HTML.value else null, businessConnectionId = businessConnectionId))
     }.body<SendMessageResult>()
 
-private suspend fun sendTelegramPhoto(chatId: Long, photoUrl: String) =
+private suspend fun sendTelegramPhoto(chatId: Long, photoUrl: String, businessConnectionId: String? = null) =
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendPhoto") {
         contentType(ContentType.Application.Json)
-        setBody(PhotoRequest(chatId = chatId, photoUrl = photoUrl))
+        setBody(PhotoRequest(chatId = chatId, photoUrl = photoUrl, businessConnectionId = businessConnectionId))
     }.body<SendMessageResult>()
 
 private suspend fun pinMessage(chatId: Long, messageId: Long) {
@@ -263,10 +296,10 @@ private suspend fun pinMessage(chatId: Long, messageId: Long) {
     }.body<HttpResponse>()
 }
 
-private suspend fun editMessage(chatId: Long, messageId: Long, text: String) {
+private suspend fun editMessage(chatId: Long, messageId: Long, text: String, businessConnectionId: String? = null) {
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/editMessageText") {
         contentType(ContentType.Application.Json)
-        setBody(EditMessageRequest(chatId, messageId, text))
+        setBody(EditMessageRequest(chatId, messageId, text, businessConnectionId))
     }.body<HttpResponse>()
 }
 

@@ -8,7 +8,7 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.coroutines.*
 
-class BotTypingJob(private val chatId: Long) {
+class BotTypingJob(private val chatId: Long, private val businessConnectionId: String? = null) {
 
     private var job: Job? = null
 
@@ -34,7 +34,7 @@ class BotTypingJob(private val chatId: Long) {
     private suspend fun sendChatTypingAction() = try {
         telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendChatAction") {
             contentType(ContentType.Application.Json)
-            setBody(ChatAction(chatId, ActionType.TYPING))
+            setBody(ChatAction(chatId, ActionType.TYPING, businessConnectionId))
         }.body<ChatActionResult>()
     } catch (e: Exception) {
         println("Unable to send Typing action, message - ${e.message}")
