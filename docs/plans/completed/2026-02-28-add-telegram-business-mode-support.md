@@ -88,4 +88,4 @@ Enable the bot to receive and respond to commands in business-connected chats (p
 
 ### Task 6: Update documentation
 
-- [ ] Move this plan to `docs/plans/completed/`
+- [x] Move this plan to `docs/plans/completed/`
