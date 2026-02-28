@@ -55,12 +55,12 @@ fun Application.configureBot() {
                 println("Business connection event: ${businessConnection.id}, canReply=${businessConnection.canReply}")
                 return@post
             }
-            val message = update.message ?: update.businessMessage
-            val messageText = message?.text
-            val chatId = message?.chat?.id ?: return@post
-            val businessConnectionId = message?.businessConnectionId
+            val message = update.message ?: update.businessMessage ?: return@post
+            val messageText = message.text
+            val chatId = message.chat.id
+            val businessConnectionId = message.businessConnectionId
             val diff = ChronoUnit.MINUTES.between(
-                Date((message?.date ?: 0) * 1000).toInstant().atZone(gmtPlus3),
+                Date(message.date * 1000).toInstant().atZone(gmtPlus3),
                 Instant.now().atZone(gmtPlus3)
             )
             if (diff > 10) return@post
@@ -274,10 +274,10 @@ private suspend fun pinMessage(chatId: Long, messageId: Long) {
     }.body<HttpResponse>()
 }
 
-private suspend fun editMessage(chatId: Long, messageId: Long, text: String) {
+private suspend fun editMessage(chatId: Long, messageId: Long, text: String, businessConnectionId: String? = null) {
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/editMessageText") {
         contentType(ContentType.Application.Json)
-        setBody(EditMessageRequest(chatId, messageId, text))
+        setBody(EditMessageRequest(chatId, messageId, text, businessConnectionId))
     }.body<HttpResponse>()
 }
 

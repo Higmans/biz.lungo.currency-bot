@@ -39,7 +39,7 @@ data class Message(
     @SerializedName("from") var from: From,
     @SerializedName("chat") var chat: Chat,
     @SerializedName("date") var date: Long,
-    @SerializedName("text") var text: String,
+    @SerializedName("text") var text: String? = null,
     @SerializedName("reply_to_message") var replyToMessage: Message? = null,
     @SerializedName("author_signature") var authorSignature: String? = null,
     @SerializedName("sender_boost_count") var senderBoostCount: Int? = null,
