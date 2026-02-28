@@ -45,11 +45,11 @@ Enable the bot to receive and respond to commands in business-connected chats (p
 - Modify: `src/main/kotlin/biz/lungo/currencybot/data/EditMessageRequest.kt`
 - Modify: `src/main/kotlin/biz/lungo/currencybot/data/PhotoRequest.kt`
 
-- [ ] In `MessageRequest`, add `businessConnectionId: String? = null` mapped to `"business_connection_id"`
-- [ ] In `ChatAction`, add `businessConnectionId: String? = null` mapped to `"business_connection_id"`
-- [ ] In `EditMessageRequest`, add `businessConnectionId: String? = null` mapped to `"business_connection_id"`
-- [ ] In `PhotoRequest`, add `businessConnectionId: String? = null` mapped to `"business_connection_id"`
-- [ ] Build the project to confirm compilation
+- [x] In `MessageRequest`, add `businessConnectionId: String? = null` mapped to `"business_connection_id"`
+- [x] In `ChatAction`, add `businessConnectionId: String? = null` mapped to `"business_connection_id"`
+- [x] In `EditMessageRequest`, add `businessConnectionId: String? = null` mapped to `"business_connection_id"`
+- [x] In `PhotoRequest`, add `businessConnectionId: String? = null` mapped to `"business_connection_id"`
+- [x] Build the project to confirm compilation
 
 ### Task 3: Update BotTypingJob to forward businessConnectionId
 

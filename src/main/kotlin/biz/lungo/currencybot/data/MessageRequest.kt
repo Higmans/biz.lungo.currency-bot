@@ -7,7 +7,8 @@ data class MessageRequest(
     @SerializedName("chat_id") val chatId: Long,
     @SerializedName("text") val text: String,
     @SerializedName("parse_mode") val parseMode: String?,
-    @SerializedName("reply_markup") val replyMarkup: ReplyMarkup? = null
+    @SerializedName("reply_markup") val replyMarkup: ReplyMarkup? = null,
+    @SerializedName("business_connection_id") val businessConnectionId: String? = null
 
 )
 
