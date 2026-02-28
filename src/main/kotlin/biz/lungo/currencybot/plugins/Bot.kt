@@ -67,7 +67,7 @@ fun Application.configureBot() {
             val messageText = message.text
             val chatId = message.chat.id
             val businessConnectionId = message.businessConnectionId
-            if (businessConnectionId != null && businessConnectionCanReply[businessConnectionId] == false) return@post
+            if (businessConnectionId != null && businessConnectionCanReply[businessConnectionId] != true) return@post
             val diff = ChronoUnit.MINUTES.between(
                 Date(message.date * 1000).toInstant().atZone(gmtPlus3),
                 Instant.now().atZone(gmtPlus3)
@@ -100,39 +100,51 @@ fun Application.configureBot() {
                 Command.NbuRate -> {
                     val botUser = botInfoCollection.find().first() ?: return@post
                     val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
-                    val regex = Pattern.compile("${Command.NbuRate.commandText}(@${botUser.username})?")
-                    val param = messageText?.split(regex)?.getOrNull(1)?.trim()
-                    if (param?.isNotBlank() == true) {
-                        sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()), businessConnectionId = businessConnectionId)
-                    } else {
-                        sendTelegramMessage(chatId, "Яка саме валюта цікавить?", businessConnectionId = businessConnectionId)
-                        waitingForReply.add(Pair(chatId, businessConnectionId))
+                    try {
+                        val regex = Pattern.compile("${Command.NbuRate.commandText}(@${botUser.username})?")
+                        val param = messageText?.split(regex)?.getOrNull(1)?.trim()
+                        if (param?.isNotBlank() == true) {
+                            sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()), businessConnectionId = businessConnectionId)
+                        } else {
+                            sendTelegramMessage(chatId, "Яка саме валюта цікавить?", businessConnectionId = businessConnectionId)
+                            waitingForReply.add(Pair(chatId, businessConnectionId))
+                        }
+                    } finally {
+                        typingJob.finish()
                     }
-                    typingJob.finish()
                 }
                 Command.Crypto -> {
                     val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
-                    val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT, CAKE, TON, TRUMP))
-                    sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.doge.symbol}: $${rates.data.doge.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.dot.symbol}: $${rates.data.dot.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.ton.symbol}: $${rates.data.ton.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.trump.symbol}: $${rates.data.trump.quote.quoteValue.price.formatValue()}", businessConnectionId = businessConnectionId)
-                    typingJob.finish()
+                    try {
+                        val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT, CAKE, TON, TRUMP))
+                        sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.xrp.symbol}: $${rates.data.xrp.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.doge.symbol}: $${rates.data.doge.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.dot.symbol}: $${rates.data.dot.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.ton.symbol}: $${rates.data.ton.quote.quoteValue.price.formatValue()}${br}" +
+                                "${rates.data.trump.symbol}: $${rates.data.trump.quote.quoteValue.price.formatValue()}", businessConnectionId = businessConnectionId)
+                    } finally {
+                        typingJob.finish()
+                    }
                 }
                 Command.Joke -> {
                     val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
-                    sendTelegramMessage(chatId, getNewJoke(), businessConnectionId = businessConnectionId)
-                    typingJob.finish()
+                    try {
+                        sendTelegramMessage(chatId, getNewJoke(), businessConnectionId = businessConnectionId)
+                    } finally {
+                        typingJob.finish()
+                    }
                 }
                 Command.Oil -> {
                     val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
-                    val oilPrices = getOilPrices()
-                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}", businessConnectionId = businessConnectionId)
-                    typingJob.finish()
+                    try {
+                        val oilPrices = getOilPrices()
+                        sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}", businessConnectionId = businessConnectionId)
+                    } finally {
+                        typingJob.finish()
+                    }
                 }
                 Command.Meme -> {
                     sendTelegramPhoto(chatId, getMemeUrl(), businessConnectionId = businessConnectionId)
