@@ -5,7 +5,11 @@ import com.google.gson.annotations.SerializedName
 data class MessageResponse(
 
     @SerializedName("update_id") var updateId: Long,
-    @SerializedName("message") var message: Message?
+    @SerializedName("message") var message: Message?,
+    @SerializedName("business_connection") var businessConnection: BusinessConnection? = null,
+    @SerializedName("business_message") var businessMessage: Message? = null,
+    @SerializedName("edited_business_message") var editedBusinessMessage: Message? = null,
+    @SerializedName("deleted_business_messages") var deletedBusinessMessages: BusinessMessagesDeleted? = null
 
 )
 
@@ -42,6 +46,7 @@ data class Message(
     @SerializedName("reply_markup") var replyMarkup: ReplyMarkup? = null,
     @SerializedName("has_protected_content") var hasProtectedContent: Boolean? = null,
     @SerializedName("is_topic_message") var isTopicMessage: Boolean? = null,
-    @SerializedName("message_thread_id") var messageThreadId: Int? = null
+    @SerializedName("message_thread_id") var messageThreadId: Int? = null,
+    @SerializedName("business_connection_id") var businessConnectionId: String? = null
 
 )
