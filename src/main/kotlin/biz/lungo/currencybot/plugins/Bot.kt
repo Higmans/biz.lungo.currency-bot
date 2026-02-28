@@ -20,6 +20,7 @@ import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
@@ -27,6 +28,7 @@ import kotlin.time.Duration.Companion.seconds
 
 private val br = System.lineSeparator()
 private val waitingForReply = CopyOnWriteArrayList<Long>()
+private val businessConnectionCanReply = ConcurrentHashMap<String, Boolean>()
 
 private val botInfoCollection = configDb.getCollection<BotUser>()
 private val pinnedDb = mongoClient.getDatabase("pinned")
@@ -54,12 +56,14 @@ fun Application.configureBot() {
             val businessConnection = update.businessConnection
             if (businessConnection != null) {
                 this@configureBot.log.info("Business connection event: ${businessConnection.id}, canReply=${businessConnection.canReply}")
+                businessConnectionCanReply[businessConnection.id] = businessConnection.canReply
                 return@post
             }
             val message = update.message ?: update.businessMessage ?: return@post
             val messageText = message.text
             val chatId = message.chat.id
             val businessConnectionId = message.businessConnectionId
+            if (businessConnectionId != null && businessConnectionCanReply[businessConnectionId] == false) return@post
             val diff = ChronoUnit.MINUTES.between(
                 Date(message.date * 1000).toInstant().atZone(gmtPlus3),
                 Instant.now().atZone(gmtPlus3)
@@ -67,8 +71,8 @@ fun Application.configureBot() {
             if (diff > 10) return@post
 
             if (waitingForReply.contains(chatId)) {
-                waitingForReply.remove(chatId)
                 if (messageText.isNullOrBlank()) return@post
+                waitingForReply.remove(chatId)
                 val output = formatNbuRatesResponse(messageText, getNbuRates())
                 sendTelegramMessage(chatId, output, businessConnectionId = businessConnectionId)
                 return@post
