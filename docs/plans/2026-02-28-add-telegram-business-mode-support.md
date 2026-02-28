@@ -65,16 +65,16 @@ Enable the bot to receive and respond to commands in business-connected chats (p
 **Files:**
 - Modify: `src/main/kotlin/biz/lungo/currencybot/plugins/Bot.kt`
 
-- [ ] After `call.receive<MessageResponse>()`, add early return if `update.businessConnection != null` (log the connection event and return)
-- [ ] Resolve message as `update.message ?: update.businessMessage` (keep existing `val message = ...` pattern)
-- [ ] Extract `val businessConnectionId = message?.businessConnectionId`
-- [ ] For `Command.Start`: when `businessConnectionId != null`, send a simple welcome message (no pin flow, since pinning is not supported in business chats)
-- [ ] Pass `businessConnectionId` to all `sendTelegramMessage(chatId, ..., businessConnectionId = businessConnectionId)` calls throughout all commands
-- [ ] Pass `businessConnectionId` to `sendTelegramPhoto` call (Meme command)
-- [ ] Pass `businessConnectionId` when constructing `BotTypingJob(chatId, businessConnectionId)` for all typing jobs
-- [ ] Add `businessConnectionId: String? = null` parameter to `sendTelegramMessage` function and include it in `MessageRequest`
-- [ ] Add `businessConnectionId: String? = null` parameter to `sendTelegramPhoto` function and include it in `PhotoRequest`
-- [ ] Build the project to confirm compilation
+- [x] After `call.receive<MessageResponse>()`, add early return if `update.businessConnection != null` (log the connection event and return)
+- [x] Resolve message as `update.message ?: update.businessMessage` (keep existing `val message = ...` pattern)
+- [x] Extract `val businessConnectionId = message?.businessConnectionId`
+- [x] For `Command.Start`: when `businessConnectionId != null`, send a simple welcome message (no pin flow, since pinning is not supported in business chats)
+- [x] Pass `businessConnectionId` to all `sendTelegramMessage(chatId, ..., businessConnectionId = businessConnectionId)` calls throughout all commands
+- [x] Pass `businessConnectionId` to `sendTelegramPhoto` call (Meme command)
+- [x] Pass `businessConnectionId` when constructing `BotTypingJob(chatId, businessConnectionId)` for all typing jobs
+- [x] Add `businessConnectionId: String? = null` parameter to `sendTelegramMessage` function and include it in `MessageRequest`
+- [x] Add `businessConnectionId: String? = null` parameter to `sendTelegramPhoto` function and include it in `PhotoRequest`
+- [x] Build the project to confirm compilation
 
 ### Task 5: Verify acceptance criteria
 

@@ -50,10 +50,17 @@ fun Application.configureBot() {
         post("/$botPath") {
             val update = call.receive<MessageResponse>()
             call.respondText("OK")
-            val messageText = update.message?.text
-            val chatId = update.message?.chat?.id ?: return@post
+            val businessConnection = update.businessConnection
+            if (businessConnection != null) {
+                println("Business connection event: ${businessConnection.id}, canReply=${businessConnection.canReply}")
+                return@post
+            }
+            val message = update.message ?: update.businessMessage
+            val messageText = message?.text
+            val chatId = message?.chat?.id ?: return@post
+            val businessConnectionId = message?.businessConnectionId
             val diff = ChronoUnit.MINUTES.between(
-                Date((update.message?.date ?: 0) * 1000).toInstant().atZone(gmtPlus3),
+                Date((message?.date ?: 0) * 1000).toInstant().atZone(gmtPlus3),
                 Instant.now().atZone(gmtPlus3)
             )
             if (diff > 10) return@post
@@ -61,36 +68,40 @@ fun Application.configureBot() {
             if (waitingForReply.contains(chatId)) {
                 waitingForReply.remove(chatId)
                 val output = formatNbuRatesResponse(messageText, getNbuRates())
-                sendTelegramMessage(chatId, output)
+                sendTelegramMessage(chatId, output, businessConnectionId = businessConnectionId)
                 return@post
             }
             when(messageText.parseCommand()) {
                 Command.Start -> {
-                    val savedPinnedMessage = getPinnedMessagesInfo().find { it.chatId == chatId }
-                    if (savedPinnedMessage != null) {
-                        sendTelegramMessage(chatId, "Я вже стартував в цьому чаті, спробуй інші команди \uD83D\uDE44")
+                    if (businessConnectionId != null) {
+                        sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Я готовий до роботи в бізнес-чаті.", businessConnectionId = businessConnectionId)
                     } else {
-                        sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Оновлюю курси...")
-                        fetchNbuRates()
-                        delay(3.seconds)
-                        sendAndPinMessage(chatId)
+                        val savedPinnedMessage = getPinnedMessagesInfo().find { it.chatId == chatId }
+                        if (savedPinnedMessage != null) {
+                            sendTelegramMessage(chatId, "Я вже стартував в цьому чаті, спробуй інші команди \uD83D\uDE44")
+                        } else {
+                            sendTelegramMessage(chatId, "Привіт! \uD83D\uDC4B Оновлюю курси...")
+                            fetchNbuRates()
+                            delay(3.seconds)
+                            sendAndPinMessage(chatId)
+                        }
                     }
                 }
                 Command.NbuRate -> {
                     val botUser = botInfoCollection.find().first() ?: return@post
-                    val typingJob = BotTypingJob(chatId).start(this)
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
                     val regex = Pattern.compile("${Command.NbuRate.commandText}(@${botUser.username})?")
                     val param = messageText?.split(regex)?.getOrNull(1)?.trim()
                     if (param?.isNotBlank() == true) {
-                        sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()))
+                        sendTelegramMessage(chatId, formatNbuRatesResponse(param, getNbuRates()), businessConnectionId = businessConnectionId)
                     } else {
-                        sendTelegramMessage(chatId, "Яка саме валюта цікавить?")
+                        sendTelegramMessage(chatId, "Яка саме валюта цікавить?", businessConnectionId = businessConnectionId)
                         waitingForReply.add(chatId)
                     }
                     typingJob.finish()
                 }
                 Command.Crypto -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
                     val rates = getCryptoRates(listOf(BTC, ETH, XRP, DOGE, DOT, CAKE, TON, TRUMP))
                     sendTelegramMessage(chatId, "${rates.data.btc.symbol}: $${rates.data.btc.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.eth.symbol}: $${rates.data.eth.quote.quoteValue.price.formatValue()}${br}" +
@@ -99,22 +110,22 @@ fun Application.configureBot() {
                             "${rates.data.dot.symbol}: $${rates.data.dot.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.cake.symbol}: $${rates.data.cake.quote.quoteValue.price.formatValue()}${br}" +
                             "${rates.data.ton.symbol}: $${rates.data.ton.quote.quoteValue.price.formatValue()}${br}" +
-                            "${rates.data.trump.symbol}: $${rates.data.trump.quote.quoteValue.price.formatValue()}")
+                            "${rates.data.trump.symbol}: $${rates.data.trump.quote.quoteValue.price.formatValue()}", businessConnectionId = businessConnectionId)
                     typingJob.finish()
                 }
                 Command.Joke -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
-                    sendTelegramMessage(chatId, getNewJoke())
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
+                    sendTelegramMessage(chatId, getNewJoke(), businessConnectionId = businessConnectionId)
                     typingJob.finish()
                 }
                 Command.Oil -> {
-                    val typingJob = BotTypingJob(chatId).start(this)
+                    val typingJob = BotTypingJob(chatId, businessConnectionId).start(this)
                     val oilPrices = getOilPrices()
-                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}")
+                    sendTelegramMessage(chatId, "Ціни на нафту:${br}Brent: $${oilPrices.brent.formatValue()}${br}WTI: $${oilPrices.wti.formatValue()}", businessConnectionId = businessConnectionId)
                     typingJob.finish()
                 }
                 Command.Meme -> {
-                    sendTelegramPhoto(chatId, getMemeUrl())
+                    sendTelegramPhoto(chatId, getMemeUrl(), businessConnectionId = businessConnectionId)
                 }
                 else -> Unit
             }
@@ -244,16 +255,16 @@ private suspend fun sendAndPinMessage(chatId: Long) {
     }
 }
 
-private suspend fun sendTelegramMessage(chatId: Long, message: String, markdown: Boolean = false) =
+private suspend fun sendTelegramMessage(chatId: Long, message: String, markdown: Boolean = false, businessConnectionId: String? = null) =
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendMessage") {
         contentType(ContentType.Application.Json)
-        setBody(MessageRequest(chatId = chatId, text = message, if (markdown) ParseMode.HTML.value else null))
+        setBody(MessageRequest(chatId = chatId, text = message, parseMode = if (markdown) ParseMode.HTML.value else null, businessConnectionId = businessConnectionId))
     }.body<SendMessageResult>()
 
-private suspend fun sendTelegramPhoto(chatId: Long, photoUrl: String) =
+private suspend fun sendTelegramPhoto(chatId: Long, photoUrl: String, businessConnectionId: String? = null) =
     telegramClient.post("$BOT_API_URL/bot$telegramApiToken/sendPhoto") {
         contentType(ContentType.Application.Json)
-        setBody(PhotoRequest(chatId = chatId, photoUrl = photoUrl))
+        setBody(PhotoRequest(chatId = chatId, photoUrl = photoUrl, businessConnectionId = businessConnectionId))
     }.body<SendMessageResult>()
 
 private suspend fun pinMessage(chatId: Long, messageId: Long) {
